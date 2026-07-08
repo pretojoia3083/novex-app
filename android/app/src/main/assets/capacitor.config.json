@@ -1,0 +1,9 @@
+{
+	"appId": "com.vazao.app",
+	"appName": "Vazão",
+	"webDir": "dist",
+	"backgroundColor": "#0A1420",
+	"android": {
+		"allowMixedContent": true
+	}
+}
