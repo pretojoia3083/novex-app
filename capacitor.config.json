@@ -1,0 +1,9 @@
+{
+  "appId": "com.novex.app",
+  "appName": "NOVEX",
+  "webDir": "dist",
+  "backgroundColor": "#0D0F1C",
+  "android": {
+    "allowMixedContent": true
+  }
+}
