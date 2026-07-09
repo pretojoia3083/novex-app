@@ -339,10 +339,21 @@ export default function NovexApp() {
     setTimeout(() => setToast(null), 3200);
   }, []);
 
+  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   const connectWallet = async (kind) => {
     const provider = kind === "metamask" ? window.ethereum : window.BinanceChain;
     if (!provider) {
-      showToast(kind === "metamask" ? "MetaMask não detectada neste navegador." : "Binance Wallet não detectada neste navegador.");
+      if (isMobile) {
+        const dappUrl = encodeURIComponent(window.location.href);
+        const links = {
+          metamask: `https://metamask.app.link/dapp/${dappUrl}`,
+          binance: `https://app.binance.com/`,
+        };
+        window.location.href = links[kind];
+      } else {
+        showToast(kind === "metamask" ? "MetaMask não detectada. Instale a extensão." : "Binance Wallet não detectada. Instale a extensão.");
+      }
       return;
     }
     try {
@@ -1131,8 +1142,10 @@ export default function NovexApp() {
               <button className="icon-btn" onClick={() => setWalletModalOpen(false)}><X size={18} /></button>
             </div>
             <p className="wallet-modal__hint">
-              Necessária para coletar rendimentos. A NOVEX nunca pede sua frase de recuperação nem chaves privadas —
-              toda assinatura acontece dentro da própria extensão da carteira.
+              {isMobile
+                ? "Toque em uma carteira abaixo para abrir o app e conectar automaticamente."
+                : "Necessária para coletar rendimentos. A NOVEX nunca pede sua frase de recuperação nem chaves privadas — toda assinatura acontece dentro da própria extensão da carteira."
+              }
             </p>
             <div className="wallet-options">
               <button className="wallet-option" onClick={() => connectWallet("metamask")} disabled={connecting === "metamask"}>
@@ -1140,7 +1153,10 @@ export default function NovexApp() {
                 <div className="wallet-option__info">
                   <span className="wallet-option__name">MetaMask</span>
                   <span className="wallet-option__status">
-                    {typeof window !== "undefined" && window.ethereum ? "Detectada neste navegador" : "Não detectada"}
+                    {isMobile
+                      ? (window.ethereum ? "Detectada — conectar aqui" : "Abrir no app MetaMask")
+                      : (window.ethereum ? "Detectada neste navegador" : "Não detectada — instalar extensão")
+                    }
                   </span>
                 </div>
                 {connecting === "metamask" && <span className="wallet-option__spinner" />}
@@ -1150,14 +1166,29 @@ export default function NovexApp() {
                 <div className="wallet-option__info">
                   <span className="wallet-option__name">Binance Wallet</span>
                   <span className="wallet-option__status">
-                    {typeof window !== "undefined" && window.BinanceChain ? "Detectada neste navegador" : "Não detectada"}
+                    {isMobile
+                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Abrir no app Binance")
+                      : (window.BinanceChain ? "Detectada neste navegador" : "Não detectada — instalar extensão")
+                    }
                   </span>
                 </div>
                 {connecting === "binance" && <span className="wallet-option__spinner" />}
               </button>
+              {isMobile && (
+                <button className="wallet-option" onClick={() => { window.location.href = `https://link.trustwallet.com/open_url?url=${encodeURIComponent(window.location.href)}`; }}>
+                  <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#3375BB,#1B5BBF)" }}>T</div>
+                  <div className="wallet-option__info">
+                    <span className="wallet-option__name">Trust Wallet</span>
+                    <span className="wallet-option__status">Abrir no app Trust Wallet</span>
+                  </div>
+                </button>
+              )}
             </div>
             <p className="wallet-modal__footnote">
-              Se nenhuma for detectada, instale a extensão no seu navegador e recarregue esta página.
+              {isMobile
+                ? "Se o app não abrir, certifique-se de que está instalado no seu celular. Funciona no Android e iOS."
+                : "Se nenhuma for detectada, instale a extensão no seu navegador e recarregue esta página."
+              }
             </p>
           </div>
         </div>
