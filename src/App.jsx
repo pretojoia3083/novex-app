@@ -325,6 +325,17 @@ export default function NovexApp() {
     return () => clearInterval(t);
   }, [positions.length]);
 
+  useEffect(() => {
+    if (isMobile && !connectedWallet) {
+      const timer = setTimeout(() => {
+        if (window.ethereum) {
+          showToast("Carteira detectada! Toque em 'Conectar carteira' para usar.");
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isMobile, connectedWallet, showToast]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase();
     if (!q) return PAIRS;
@@ -340,17 +351,14 @@ export default function NovexApp() {
   }, []);
 
   const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const hasProvider = typeof window !== "undefined" && !!(window.ethereum || window.BinanceChain);
+  const [mobileWalletGuide, setMobileWalletGuide] = useState(null);
 
   const connectWallet = async (kind) => {
     const provider = kind === "metamask" ? window.ethereum : window.BinanceChain;
     if (!provider) {
       if (isMobile) {
-        const dappUrl = encodeURIComponent(window.location.href);
-        const links = {
-          metamask: `https://metamask.app.link/dapp/${dappUrl}`,
-          binance: `https://app.binance.com/`,
-        };
-        window.location.href = links[kind];
+        setMobileWalletGuide(kind);
       } else {
         showToast(kind === "metamask" ? "MetaMask não detectada. Instale a extensão." : "Binance Wallet não detectada. Instale a extensão.");
       }
@@ -373,6 +381,23 @@ export default function NovexApp() {
     } finally {
       setConnecting(null);
     }
+  };
+
+  const copyDappLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      showToast("Link copiado! Cole no navegador do app da carteira.");
+    }).catch(() => {
+      showToast("Não foi possível copiar. Copie manualmente: " + window.location.href);
+    });
+  };
+
+  const openWalletApp = (kind) => {
+    const dappUrl = encodeURIComponent(window.location.href);
+    const links = {
+      metamask: `https://metamask.app.link/dapp/${dappUrl}`,
+      binance: `https://app.binance.com/`,
+    };
+    window.location.href = links[kind];
   };
 
   const disconnectWallet = () => {
@@ -1143,7 +1168,7 @@ export default function NovexApp() {
             </div>
             <p className="wallet-modal__hint">
               {isMobile
-                ? "Toque em uma carteira abaixo para abrir o app e conectar automaticamente."
+                ? "Escolha sua carteira abaixo. Se ela não estiver instalada, faça o download primeiro."
                 : "Necessária para coletar rendimentos. A NOVEX nunca pede sua frase de recuperação nem chaves privadas — toda assinatura acontece dentro da própria extensão da carteira."
               }
             </p>
@@ -1154,7 +1179,7 @@ export default function NovexApp() {
                   <span className="wallet-option__name">MetaMask</span>
                   <span className="wallet-option__status">
                     {isMobile
-                      ? (window.ethereum ? "Detectada — conectar aqui" : "Abrir no app MetaMask")
+                      ? (window.ethereum ? "Detectada — conectar aqui" : "Toque para abrir no app")
                       : (window.ethereum ? "Detectada neste navegador" : "Não detectada — instalar extensão")
                     }
                   </span>
@@ -1167,7 +1192,7 @@ export default function NovexApp() {
                   <span className="wallet-option__name">Binance Wallet</span>
                   <span className="wallet-option__status">
                     {isMobile
-                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Abrir no app Binance")
+                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Toque para abrir no app")
                       : (window.BinanceChain ? "Detectada neste navegador" : "Não detectada — instalar extensão")
                     }
                   </span>
@@ -1175,18 +1200,25 @@ export default function NovexApp() {
                 {connecting === "binance" && <span className="wallet-option__spinner" />}
               </button>
               {isMobile && (
-                <button className="wallet-option" onClick={() => { window.location.href = `https://link.trustwallet.com/open_url?url=${encodeURIComponent(window.location.href)}`; }}>
+                <button className="wallet-option" onClick={() => setMobileWalletGuide("trust")}>
                   <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#3375BB,#1B5BBF)" }}>T</div>
                   <div className="wallet-option__info">
                     <span className="wallet-option__name">Trust Wallet</span>
-                    <span className="wallet-option__status">Abrir no app Trust Wallet</span>
+                    <span className="wallet-option__status">Toque para abrir no app</span>
                   </div>
                 </button>
               )}
             </div>
+            {isMobile && (
+              <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
+                <button className="btn-ghost" style={{ flex: 1, fontSize: 12 }} onClick={copyDappLink}>
+                  Copiar link do site
+                </button>
+              </div>
+            )}
             <p className="wallet-modal__footnote">
               {isMobile
-                ? "Se o app não abrir, certifique-se de que está instalado no seu celular. Funciona no Android e iOS."
+                ? "Copie o link e cole dentro do navegador do app da carteira. Ao abrir dentro do app, a conexão acontece automaticamente."
                 : "Se nenhuma for detectada, instale a extensão no seu navegador e recarregue esta página."
               }
             </p>
@@ -1196,6 +1228,61 @@ export default function NovexApp() {
 
       {toast && (
         <div className="toast"><Check size={15} color="#06D6A0" /> {toast}</div>
+      )}
+
+      {mobileWalletGuide && (
+        <div className="overlay overlay--center" onClick={() => setMobileWalletGuide(null)}>
+          <div className="modal modal--narrow" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-header">
+              <span className="panel-title">
+                Conectar {mobileWalletGuide === "metamask" ? "MetaMask" : mobileWalletGuide === "binance" ? "Binance Wallet" : "Trust Wallet"}
+              </span>
+              <button className="icon-btn" onClick={() => setMobileWalletGuide(null)}><X size={18} /></button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{
+                background: "var(--surface2)", borderRadius: 14, padding: 20, textAlign: "center",
+                border: "1px solid var(--border)"
+              }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 16, margin: "0 auto 14px",
+                  background: mobileWalletGuide === "metamask"
+                    ? "linear-gradient(160deg,#F6851B,#E2761B)"
+                    : mobileWalletGuide === "binance"
+                    ? "linear-gradient(160deg,#F0B90B,#D9A400)"
+                    : "linear-gradient(160deg,#3375BB,#1B5BBF)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 24, fontWeight: 700, color: "#0A1420",
+                  fontFamily: "'Space Grotesk', sans-serif"
+                }}>
+                  {mobileWalletGuide === "metamask" ? "M" : mobileWalletGuide === "binance" ? "B" : "T"}
+                </div>
+                <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0, lineHeight: 1.6 }}>
+                  Para conectar, abra este site <b style={{ color: "var(--text)" }}>dentro do navegador do app</b> da carteira.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => openWalletApp(mobileWalletGuide)}>
+                  Abrir no app {mobileWalletGuide === "metamask" ? "MetaMask" : mobileWalletGuide === "binance" ? "Binance" : "Trust Wallet"}
+                </button>
+                <button className="btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={copyDappLink}>
+                  Copiar link deste site
+                </button>
+              </div>
+
+              <div style={{
+                background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)",
+                borderRadius: 10, padding: 14, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6
+              }}>
+                <b style={{ color: "var(--primary)" }}>Como funciona:</b><br />
+                1. Copie o link ou toque "Abrir no app"<br />
+                2. Dentro do app da carteira, cole o link no navegador<br />
+                3. O site vai carregar com a carteira já pronta para conectar
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
