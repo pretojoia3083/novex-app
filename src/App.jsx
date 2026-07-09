@@ -455,12 +455,10 @@ export default function NovexApp() {
   const totalVol = useMemo(() => PAIRS.reduce((a, p) => a + p.vol, 0), []);
 
   const connectWallet = async (kind) => {
-    const provider = kind === "metamask" ? window.ethereum : window.BinanceChain;
+    const provider = kind === "trust" ? window.ethereum : kind === "metamask" ? window.ethereum : window.BinanceChain;
     if (!provider) {
-      if (isMobile) {
-        setMobileWalletGuide(kind);
-      } else {
-        showToast(kind === "metamask" ? "MetaMask não detectada. Instale a extensão." : "Binance Wallet não detectada. Instale a extensão.");
+      if (!isMobile) {
+        showToast("Carteira não detectada. Instale a extensão no navegador.");
       }
       return;
     }
@@ -1388,60 +1386,78 @@ export default function NovexApp() {
             </div>
             <p className="wallet-modal__hint">
               {isMobile
-                ? "Para usar carteiras, abra este site dentro do navegador do app da carteira (MetaMask, Trust Wallet, Binance). Copie o link abaixo e cole dentro do app."
+                ? "Selecione sua carteira. Se não estiver dentro do app, toque no botão para abrir automaticamente."
                 : "Necessária para coletar rendimentos. A NOVEX nunca pede sua frase de recuperação nem chaves privadas — toda assinatura acontece dentro da própria extensão da carteira."
               }
             </p>
             <div className="wallet-options">
-              <button className="wallet-option" onClick={() => connectWallet("metamask")} disabled={connecting === "metamask"}>
+              <button className="wallet-option" onClick={() => {
+                if (isMobile && !window.ethereum) {
+                  window.location.href = `https://metamask.app.link/dapp/${encodeURIComponent(window.location.href)}`;
+                } else {
+                  connectWallet("metamask");
+                }
+              }} disabled={connecting === "metamask"}>
                 <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#F6851B,#E2761B)" }}>M</div>
                 <div className="wallet-option__info">
                   <span className="wallet-option__name">MetaMask</span>
                   <span className="wallet-option__status">
                     {isMobile
-                      ? (window.ethereum ? "Detectada — conectar aqui" : "Não detectada — copie o link abaixo")
+                      ? (window.ethereum ? "Detectada — conectar aqui" : "Abrir no app MetaMask")
                       : (window.ethereum ? "Detectada neste navegador" : "Não detectada — instalar extensão")
                     }
                   </span>
                 </div>
                 {connecting === "metamask" && <span className="wallet-option__spinner" />}
               </button>
-              <button className="wallet-option" onClick={() => connectWallet("binance")} disabled={connecting === "binance"}>
+              <button className="wallet-option" onClick={() => {
+                if (isMobile && !window.BinanceChain) {
+                  window.location.href = `https://app.binance.com/`;
+                } else {
+                  connectWallet("binance");
+                }
+              }} disabled={connecting === "binance"}>
                 <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#F0B90B,#D9A400)" }}>B</div>
                 <div className="wallet-option__info">
                   <span className="wallet-option__name">Binance Wallet</span>
                   <span className="wallet-option__status">
                     {isMobile
-                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Não detectada — copie o link abaixo")
+                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Abrir app Binance")
                       : (window.BinanceChain ? "Detectada neste navegador" : "Não detectada — instalar extensão")
                     }
                   </span>
                 </div>
                 {connecting === "binance" && <span className="wallet-option__spinner" />}
               </button>
-              {isMobile && (
-                <button className="wallet-option" onClick={() => setMobileWalletGuide("trust")}>
-                  <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#3375BB,#1B5BBF)" }}>T</div>
-                  <div className="wallet-option__info">
-                    <span className="wallet-option__name">Trust Wallet</span>
-                    <span className="wallet-option__status">Não detectada — copie o link abaixo</span>
-                  </div>
-                </button>
-              )}
+              <button className="wallet-option" onClick={() => {
+                if (isMobile && !window.ethereum) {
+                  window.location.href = `https://link.trustwallet.com/open_url?url=${encodeURIComponent(window.location.href)}`;
+                } else {
+                  connectWallet("trust");
+                }
+              }} disabled={connecting === "trust"}>
+                <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#3375BB,#1B5BBF)" }}>T</div>
+                <div className="wallet-option__info">
+                  <span className="wallet-option__name">Trust Wallet</span>
+                  <span className="wallet-option__status">
+                    {isMobile
+                      ? "Abrir no app Trust Wallet"
+                      : "Não detectada — instalar extensão"
+                    }
+                  </span>
+                </div>
+              </button>
             </div>
             {isMobile && (
-              <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-                <button className="btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={copyDappLink}>
-                  Copiar Link
-                </button>
-              </div>
+              <p className="wallet-modal__footnote">
+                Ao tocar, o app da carteira vai abrir com este site. Depois, toque em "Conectar carteira" novamente dentro do app.
+              </p>
             )}
-            <p className="wallet-modal__footnote">
-              {isMobile
-                ? "Copie o link e cole dentro do navegador do app da carteira. Ao abrir dentro do app, a conexão acontece automaticamente."
-                : "Se nenhuma for detectada, instale a extensão no seu navegador e recarregue esta página."
-              }
-            </p>
+            {!isMobile && (
+              <p className="wallet-modal__footnote">
+                Se nenhuma for detectada, instale a extensão no seu navegador e recarregue esta página.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1478,14 +1494,49 @@ export default function NovexApp() {
                   {mobileWalletGuide === "metamask" ? "M" : mobileWalletGuide === "binance" ? "B" : "T"}
                 </div>
                 <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  Para usar carteiras, abra este site dentro do navegador do app da carteira (MetaMask, Trust Wallet, Binance). Copie o link abaixo e cole dentro do app.
+                  Abra este site dentro do navegador do app da carteira para conectar.
                 </p>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={copyDappLink}>
-                  Copiar Link
-                </button>
+                {mobileWalletGuide === "metamask" && (
+                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
+                    window.location.href = `https://metamask.app.link/dapp/${encodeURIComponent(window.location.href)}`;
+                  }}>
+                    Abrir no MetaMask
+                  </button>
+                )}
+                {mobileWalletGuide === "trust" && (
+                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
+                    window.location.href = `https://link.trustwallet.com/open_url?url=${encodeURIComponent(window.location.href)}`;
+                  }}>
+                    Abrir no Trust Wallet
+                  </button>
+                )}
+                {mobileWalletGuide === "binance" && (
+                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
+                    window.location.href = `https://app.binance.com/`;
+                  }}>
+                    Abrir Binance Wallet
+                  </button>
+                )}
+              </div>
+
+              <div style={{
+                background: "var(--surface2)", border: "1px solid var(--border)",
+                borderRadius: 10, padding: 12, fontSize: 12, color: "var(--muted)"
+              }}>
+                <span style={{ color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 6 }}>
+                  Se não abrir automaticamente, copie o link:
+                </span>
+                <div style={{
+                  background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8,
+                  padding: "8px 10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                  color: "var(--accent)", wordBreak: "break-all", lineHeight: 1.5, userSelect: "all",
+                  cursor: "text"
+                }}>
+                  {window.location.href}
+                </div>
               </div>
 
               <div style={{
@@ -1493,10 +1544,10 @@ export default function NovexApp() {
                 borderRadius: 10, padding: 14, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6
               }}>
                 <b style={{ color: "var(--primary)" }}>Como funciona:</b><br />
-                1. Copie o link clicando no botão acima<br />
-                2. Abra o app da sua carteira (MetaMask, Trust Wallet ou Binance)<br />
-                3. Cole o link no navegador dentro do app<br />
-                4. O site vai carregar com a carteira já pronta para conectar
+                1. Toque em "Abrir no [carteira]" acima<br />
+                2. Dentro do app, o site vai carregar<br />
+                3. Toque em "Conectar carteira" e selecione a mesma carteira<br />
+                4. Pronto — conectado!
               </div>
             </div>
           </div>
