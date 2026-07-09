@@ -92,7 +92,7 @@ const TOKEN_PRICES = {
   BRZ: 0.19, BRLA: 0.19, "USDC.E": 1,
 };
 const DEFAULT_POSITION_USD = 1000;
-const YIELD_ACCEL = 50;
+const YIELD_ACCEL = 10;
 const YEAR_SECONDS = 365 * 24 * 3600;
 
 function depositValueUSD(pool, config) {
@@ -430,7 +430,7 @@ export default function NovexApp() {
 
   useEffect(() => {
     if (positions.length === 0) return;
-    const t = setInterval(() => setNow(Date.now()), 200);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [positions.length]);
 
