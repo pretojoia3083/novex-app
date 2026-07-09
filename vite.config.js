@@ -11,9 +11,9 @@ export default defineConfig({
       manifest: {
         name: "NOVEX — Liquidity Protocol",
         short_name: "NOVEX",
-        description: "Conecte. Forneça liquidez. Ganhe recompensas. (protótipo)",
-        theme_color: "#0D0F1C",
-        background_color: "#0D0F1C",
+        description: "Forneça liquidez. Ganhe recompensas.",
+        theme_color: "#0B0E17",
+        background_color: "#0B0E17",
         display: "standalone",
         orientation: "portrait",
         start_url: "./",
