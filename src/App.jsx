@@ -318,6 +318,14 @@ export default function NovexApp() {
   const [connectedWallet, setConnectedWallet] = useState(null);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [connecting, setConnecting] = useState(null);
+  const [mobileWalletGuide, setMobileWalletGuide] = useState(null);
+
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   useEffect(() => {
     if (positions.length === 0) return;
@@ -334,7 +342,7 @@ export default function NovexApp() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isMobile, connectedWallet, showToast]);
+  }, [connectedWallet, showToast]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase();
@@ -344,15 +352,6 @@ export default function NovexApp() {
 
   const totalTVL = useMemo(() => PAIRS.reduce((a, p) => a + p.tvl, 0), []);
   const totalVol = useMemo(() => PAIRS.reduce((a, p) => a + p.vol, 0), []);
-
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3200);
-  }, []);
-
-  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const hasProvider = typeof window !== "undefined" && !!(window.ethereum || window.BinanceChain);
-  const [mobileWalletGuide, setMobileWalletGuide] = useState(null);
 
   const connectWallet = async (kind) => {
     const provider = kind === "metamask" ? window.ethereum : window.BinanceChain;
