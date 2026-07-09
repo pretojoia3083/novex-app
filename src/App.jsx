@@ -34,6 +34,7 @@ const TOKEN_COLORS = {
   DOGE: "#C2A633", SUI: "#6FBCF0", APT: "#00D2FF", INJ: "#00B2FF",
   RNDR: "#7B4FFF", NEAR: "#00C08B", ATOM: "#2E3148", TIA: "#7C3AED",
   SEI: "#8B2FE0", WLD: "#E0E0E0", FTM: "#1969FF",
+  BRZ: "#32BAC4", BRLA: "#48C9B0",
 };
 
 const PAIRS_RAW = [
@@ -63,6 +64,9 @@ const PAIRS_RAW = [
   ["SEI","USDT",1.00,  1_900_000,  2_200_000, 31.4],
   ["WLD","USDT",1.00,  2_100_000,  2_800_000, 29.5],
   ["FTM","USDT",0.30,  2_300_000,  1_100_000, 18.9],
+  ["BRZ","USDT",0.05,   60_000,    5_000,   20],
+  ["BRZ","BRLA",0.05,   22_000,   30_000,   22],
+  ["USDC.E","USDT",0.01, 400_000, 558_000,  5.6],
 ];
 
 const PAIRS = PAIRS_RAW.map(([base, quote, fee, tvl, vol, apr], i) => ({
@@ -85,9 +89,10 @@ const TOKEN_PRICES = {
   AAVE: 95, MKR: 1750, LDO: 1.1, PEPE: 0.0000105, DOGE: 0.11,
   SUI: 2.9, APT: 6.4, INJ: 19, RNDR: 5.2, NEAR: 4.1, ATOM: 6.8,
   TIA: 5.6, SEI: 0.32, WLD: 1.9, FTM: 0.55,
+  BRZ: 0.19, BRLA: 0.19, "USDC.E": 1,
 };
 const DEFAULT_POSITION_USD = 1000;
-const YIELD_ACCEL = 3000;
+const YIELD_ACCEL = 50;
 const YEAR_SECONDS = 365 * 24 * 3600;
 
 function depositValueUSD(pool, config) {
@@ -301,6 +306,102 @@ function LiquidityConfigurator({ pool, config, onChange }) {
   );
 }
 
+function PoolCalculator({ pools }) {
+  const [selectedPoolId, setSelectedPoolId] = useState(pools[0]?.id || "");
+  const [amountBase, setAmountBase] = useState("");
+  const [amountQuote, setAmountQuote] = useState("");
+
+  const pool = pools.find(p => p.id === selectedPoolId);
+
+  const calc = useMemo(() => {
+    if (!pool) return { day: 0, week: 0, month: 0, year: 0 };
+    const baseVal = (parseFloat(amountBase) || 0) * (TOKEN_PRICES[pool.base] || 0);
+    const quoteVal = (parseFloat(amountQuote) || 0) * (TOKEN_PRICES[pool.quote] || 0);
+    const totalUSD = baseVal + quoteVal;
+    if (totalUSD <= 0) return { day: 0, week: 0, month: 0, year: 0 };
+    const dailyRate = (pool.apr / 100) / 365;
+    return {
+      day: totalUSD * dailyRate,
+      week: totalUSD * dailyRate * 7,
+      month: totalUSD * dailyRate * 30,
+      year: totalUSD * dailyRate * 365,
+    };
+  }, [pool, amountBase, amountQuote]);
+
+  return (
+    <div className="calculator-card">
+      <div className="calc-select-row">
+        <div className="calc-select-wrap">
+          <select
+            className="calc-select"
+            value={selectedPoolId}
+            onChange={(e) => { setSelectedPoolId(e.target.value); setAmountBase(""); setAmountQuote(""); }}
+          >
+            {pools.map((p) => (
+              <option key={p.id} value={p.id}>{p.base}/{p.quote} ({p.fee.toFixed(2)}%)</option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="calc-select-chevron" />
+        </div>
+        {pool && <span className="calc-apr-badge">APR {pool.apr.toFixed(1)}%</span>}
+      </div>
+
+      {pool && (
+        <>
+          <div className="calc-input-row">
+            <div className="calc-input-group">
+              <TokenAvatar symbol={pool.base} size={20} />
+              <input
+                type="number"
+                placeholder={`0.0 ${pool.base}`}
+                value={amountBase}
+                onChange={(e) => setAmountBase(e.target.value)}
+              />
+              <span className="calc-input-symbol">{pool.base}</span>
+            </div>
+            <span className="calc-input-plus">+</span>
+            <div className="calc-input-group">
+              <TokenAvatar symbol={pool.quote} size={20} />
+              <input
+                type="number"
+                placeholder={`0.0 ${pool.quote}`}
+                value={amountQuote}
+                onChange={(e) => setAmountQuote(e.target.value)}
+              />
+              <span className="calc-input-symbol">{pool.quote}</span>
+            </div>
+          </div>
+
+          <div className="calc-divider" />
+
+          <div className="calc-results">
+            <div className="calc-result-card">
+              <span className="calc-result-label">Dia</span>
+              <span className="calc-result-value">{fmtMoney(calc.day)}</span>
+            </div>
+            <div className="calc-result-card">
+              <span className="calc-result-label">Semana</span>
+              <span className="calc-result-value">{fmtMoney(calc.week)}</span>
+            </div>
+            <div className="calc-result-card">
+              <span className="calc-result-label">Mês</span>
+              <span className="calc-result-value">{fmtMoney(calc.month)}</span>
+            </div>
+            <div className="calc-result-card">
+              <span className="calc-result-label">Ano</span>
+              <span className="calc-result-value">{fmtMoney(calc.year)}</span>
+            </div>
+          </div>
+
+          {!(parseFloat(amountBase) > 0 || parseFloat(amountQuote) > 0) && (
+            <span className="calc-hint">Insira valores acima para calcular os rendimentos estimados.</span>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const DEFAULT_CONFIG = { rangeMode: "wide", min: -35, max: 35, amountBase: "", amountQuote: "" };
 
 export default function NovexApp() {
@@ -390,15 +491,6 @@ export default function NovexApp() {
     });
   };
 
-  const openWalletApp = (kind) => {
-    const dappUrl = encodeURIComponent(window.location.href);
-    const links = {
-      metamask: `https://metamask.app.link/dapp/${dappUrl}`,
-      binance: `https://app.binance.com/`,
-    };
-    window.location.href = links[kind];
-  };
-
   const disconnectWallet = () => {
     setConnectedWallet(null);
     showToast("Carteira desconectada");
@@ -412,7 +504,6 @@ export default function NovexApp() {
   const toggleSelect = (id) => {
     setSelectedIds((cur) => {
       if (cur.includes(id)) return cur.filter((x) => x !== id);
-      if (cur.length >= 2) return cur;
       return [...cur, id];
     });
   };
@@ -542,6 +633,11 @@ export default function NovexApp() {
         .brand-name--sm { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700;
           background: linear-gradient(135deg, var(--text), var(--primary));
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .network-badge {
+          font-size: 10px; background: rgba(6,214,160,0.1); border: 1px solid rgba(6,214,160,0.25);
+          color: var(--accent); padding: 2px 9px; border-radius: 20px;
+          font-family: 'JetBrains Mono', monospace; font-weight: 500; letter-spacing: 0.02em;
         }
         .wallet-connect-btn {
           background: linear-gradient(135deg, var(--primary), var(--primary-dim));
@@ -726,6 +822,84 @@ export default function NovexApp() {
           background: linear-gradient(90deg, var(--primary-dim), var(--primary), var(--accent));
           transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        .education-wrap { max-width: 1100px; margin: 48px auto 0; padding: 0 32px; }
+        .education-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .edu-card {
+          background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+          padding: 22px; transition: all 0.25s ease;
+        }
+        .edu-card:hover { border-color: var(--border-bright); transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(139,92,246,0.08);
+        }
+        .edu-card__icon {
+          width: 40px; height: 40px; border-radius: 12px;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 14px;
+        }
+        .edu-card__title {
+          font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px;
+          margin-bottom: 8px;
+        }
+        .edu-card__text { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+
+        .calculator-wrap { max-width: 1100px; margin: 48px auto 0; padding: 0 32px; }
+        .calculator-card {
+          background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+          padding: 24px; transition: all 0.25s ease;
+        }
+        .calculator-card:hover { border-color: var(--border-bright); }
+        .calc-select-row { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+        .calc-select-wrap { position: relative; flex: 1; }
+        .calc-select {
+          width: 100%; appearance: none; -webkit-appearance: none; -moz-appearance: none;
+          background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+          color: var(--text); font-size: 14px; padding: 12px 40px 12px 14px;
+          font-family: 'JetBrains Mono', monospace; cursor: pointer;
+          outline: none; transition: all 0.2s ease;
+        }
+        .calc-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+        .calc-select option { background: var(--surface); color: var(--text); }
+        .calc-select-chevron {
+          position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+          color: var(--muted); pointer-events: none;
+        }
+        .calc-apr-badge {
+          font-size: 12px; background: rgba(6,214,160,0.1); border: 1px solid rgba(6,214,160,0.2);
+          color: var(--accent); padding: 8px 14px; border-radius: 10px;
+          font-family: 'JetBrains Mono', monospace; font-weight: 500; white-space: nowrap;
+        }
+        .calc-input-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .calc-input-group {
+          flex: 1; display: flex; align-items: center; gap: 10px;
+          background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+          padding: 12px 14px; transition: all 0.2s ease;
+        }
+        .calc-input-group:focus-within { border-color: var(--primary); }
+        .calc-input-group input {
+          flex: 1; background: none; border: none; outline: none; color: var(--text);
+          font-family: 'JetBrains Mono', monospace; font-size: 14px;
+        }
+        .calc-input-group input::placeholder { color: var(--muted2); }
+        .calc-input-symbol { font-size: 12px; color: var(--muted); font-weight: 500; }
+        .calc-input-plus { color: var(--muted2); font-size: 16px; font-weight: 600; }
+        .calc-divider { height: 1px; background: var(--border); margin-bottom: 18px; }
+        .calc-results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .calc-result-card {
+          background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+          padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+          transition: all 0.2s ease;
+        }
+        .calc-result-card:hover { border-color: var(--primary-dim); }
+        .calc-result-label {
+          font-size: 10.5px; color: var(--muted); text-transform: uppercase;
+          letter-spacing: 0.06em; font-weight: 500;
+        }
+        .calc-result-value {
+          font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600;
+          color: var(--accent);
+        }
+        .calc-hint { font-size: 11px; color: var(--muted2); display: block; margin-top: 14px; text-align: center; }
 
         .float-bar {
           position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -923,8 +1097,12 @@ export default function NovexApp() {
           .hero { padding: 32px 20px 52px; }
           .hero__headline { font-size: 28px; }
           .hero__stats { gap: 28px; }
-          .toolbar, .grid-wrap, .positions-wrap { padding: 0 20px; }
+          .toolbar, .grid-wrap, .education-wrap, .calculator-wrap, .positions-wrap { padding: 0 20px; }
           .pool-grid { grid-template-columns: 1fr; }
+          .education-grid { grid-template-columns: 1fr; }
+          .calc-results { grid-template-columns: repeat(2, 1fr); }
+          .calc-input-row { flex-direction: column; }
+          .calc-input-plus { transform: rotate(90deg); }
           .position-card { flex-direction: column; align-items: flex-start; gap: 14px; }
           .position-right { width: 100%; justify-content: space-between; }
         }
@@ -934,6 +1112,7 @@ export default function NovexApp() {
         <div className="topbar__brand">
           <div className="brand-mark brand-mark--sm"><NovexMark size={18} /></div>
           <span className="brand-name brand-name--sm">NOVEX</span>
+          <span className="network-badge">Polygon</span>
         </div>
         {connectedWallet ? (
           <button className="wallet-chip" onClick={disconnectWallet} title="Clique para desconectar">
@@ -965,9 +1144,9 @@ export default function NovexApp() {
             <span className="brand-name">NOVEX</span>
             <span className="brand-tag">Protocolo de Liquidez</span>
           </div>
-          <h1 className="hero__headline">Forneça liquidez. Ganhe recompensas.</h1>
+          <h1 className="hero__headline">Forneça liquidez. Ganhe taxas reais.</h1>
           <p className="hero__sub">
-            Explore {PAIRS.length} pares de tokens no estilo Uniswap V3. Concentre sua liquidez em faixas de preço para maximizar seus rendimentos.
+            Deposite seus tokens em pools Uniswap V3 e receba uma parte das taxas de cada troca. Escolha faixas de preço para maximizar seus rendimentos na Polygon.
           </p>
           <div className="hero__stats">
             <div>
@@ -996,7 +1175,7 @@ export default function NovexApp() {
           />
         </div>
         <button className={`select-toggle ${selectionMode ? "select-toggle--on" : ""}`} onClick={toggleSelectionMode}>
-          <Check size={14} /> {selectionMode ? "Cancelar seleção" : "Selecionar até 2 pools"}
+          <Check size={14} /> {selectionMode ? "Cancelar seleção" : "Selecionar pools"}
         </button>
       </div>
 
@@ -1008,12 +1187,54 @@ export default function NovexApp() {
               pool={pool}
               selectionMode={selectionMode}
               selected={selectedIds.includes(pool.id)}
-              disabled={selectionMode && selectedIds.length >= 2 && !selectedIds.includes(pool.id)}
+              disabled={false}
               onOpen={(p) => { setDrawerPool(p); setDrawerConfig(DEFAULT_CONFIG); }}
               onToggleSelect={toggleSelect}
             />
           ))}
         </div>
+      </div>
+
+      <div className="education-wrap">
+        <div className="section-title-row">
+          <div className="section-title"><Sparkles size={17} color="#06D6A0" /> Como funciona a liquidez na NOVEX</div>
+        </div>
+        <div className="education-grid">
+          <div className="edu-card">
+            <div className="edu-card__icon" style={{ background: "rgba(139,92,246,0.15)" }}>
+              <TrendingUp size={20} color="#8B5CF6" />
+            </div>
+            <div className="edu-card__title">Forneça Liquidez</div>
+            <div className="edu-card__text">
+              Deposite dois tokens em um par (ex: ETH + USDT) para formar um pool de liquidez. Você ganha taxas de cada troca feita nesse par.
+            </div>
+          </div>
+          <div className="edu-card">
+            <div className="edu-card__icon" style={{ background: "rgba(6,214,160,0.15)" }}>
+              <Sparkles size={20} color="#06D6A0" />
+            </div>
+            <div className="edu-card__title">Faixa de Preço</div>
+            <div className="edu-card__text">
+              Escolha uma faixa de preço para concentrar sua liquidez. Quanto mais estreita a faixa, maiores os rendimentos — mas maior o risco.
+            </div>
+          </div>
+          <div className="edu-card">
+            <div className="edu-card__icon" style={{ background: "rgba(245,158,11,0.15)" }}>
+              <Wallet size={20} color="#F59E0B" />
+            </div>
+            <div className="edu-card__title">Recolha Rendimentos</div>
+            <div className="edu-card__text">
+              Suas taxas acumulam em tempo real. Clique em 'Coletar' para transferir os ganhos para sua carteira a qualquer momento.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="calculator-wrap">
+        <div className="section-title-row">
+          <div className="section-title"><TrendingUp size={17} color="#F59E0B" /> Calculadora de Rendimentos</div>
+        </div>
+        <PoolCalculator pools={PAIRS} />
       </div>
 
       <div className="positions-wrap">
@@ -1035,7 +1256,7 @@ export default function NovexApp() {
 
         {positions.length === 0 ? (
           <div className="empty-state">
-            Você ainda não criou posições. Clique em uma pool ou selecione até 2 para configurar liquidez.
+            Você ainda não criou posições. Clique em uma pool ou selecione pools para configurar liquidez.
           </div>
         ) : (
           positions.map((pos) => {
@@ -1077,7 +1298,7 @@ export default function NovexApp() {
 
       {selectionMode && selectedIds.length > 0 && (
         <div className="float-bar">
-          <span className="float-bar__text"><b>{selectedIds.length}</b> pool{selectedIds.length > 1 ? "s" : ""} selecionada{selectedIds.length > 1 ? "s" : ""} (máx. 2)</span>
+          <span className="float-bar__text"><b>{selectedIds.length}</b> pool{selectedIds.length > 1 ? "s" : ""} selecionada{selectedIds.length > 1 ? "s" : ""}</span>
           <button className="btn-primary" onClick={openConfigureModal}>Configurar liquidez</button>
         </div>
       )}
@@ -1167,7 +1388,7 @@ export default function NovexApp() {
             </div>
             <p className="wallet-modal__hint">
               {isMobile
-                ? "Escolha sua carteira abaixo. Se ela não estiver instalada, faça o download primeiro."
+                ? "Para usar carteiras, abra este site dentro do navegador do app da carteira (MetaMask, Trust Wallet, Binance). Copie o link abaixo e cole dentro do app."
                 : "Necessária para coletar rendimentos. A NOVEX nunca pede sua frase de recuperação nem chaves privadas — toda assinatura acontece dentro da própria extensão da carteira."
               }
             </p>
@@ -1178,7 +1399,7 @@ export default function NovexApp() {
                   <span className="wallet-option__name">MetaMask</span>
                   <span className="wallet-option__status">
                     {isMobile
-                      ? (window.ethereum ? "Detectada — conectar aqui" : "Toque para abrir no app")
+                      ? (window.ethereum ? "Detectada — conectar aqui" : "Não detectada — copie o link abaixo")
                       : (window.ethereum ? "Detectada neste navegador" : "Não detectada — instalar extensão")
                     }
                   </span>
@@ -1191,7 +1412,7 @@ export default function NovexApp() {
                   <span className="wallet-option__name">Binance Wallet</span>
                   <span className="wallet-option__status">
                     {isMobile
-                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Toque para abrir no app")
+                      ? (window.BinanceChain ? "Detectada — conectar aqui" : "Não detectada — copie o link abaixo")
                       : (window.BinanceChain ? "Detectada neste navegador" : "Não detectada — instalar extensão")
                     }
                   </span>
@@ -1203,15 +1424,15 @@ export default function NovexApp() {
                   <div className="wallet-option__icon" style={{ background: "linear-gradient(160deg,#3375BB,#1B5BBF)" }}>T</div>
                   <div className="wallet-option__info">
                     <span className="wallet-option__name">Trust Wallet</span>
-                    <span className="wallet-option__status">Toque para abrir no app</span>
+                    <span className="wallet-option__status">Não detectada — copie o link abaixo</span>
                   </div>
                 </button>
               )}
             </div>
             {isMobile && (
               <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-                <button className="btn-ghost" style={{ flex: 1, fontSize: 12 }} onClick={copyDappLink}>
-                  Copiar link do site
+                <button className="btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={copyDappLink}>
+                  Copiar Link
                 </button>
               </div>
             )}
@@ -1257,16 +1478,13 @@ export default function NovexApp() {
                   {mobileWalletGuide === "metamask" ? "M" : mobileWalletGuide === "binance" ? "B" : "T"}
                 </div>
                 <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0, lineHeight: 1.6 }}>
-                  Para conectar, abra este site <b style={{ color: "var(--text)" }}>dentro do navegador do app</b> da carteira.
+                  Para usar carteiras, abra este site dentro do navegador do app da carteira (MetaMask, Trust Wallet, Binance). Copie o link abaixo e cole dentro do app.
                 </p>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => openWalletApp(mobileWalletGuide)}>
-                  Abrir no app {mobileWalletGuide === "metamask" ? "MetaMask" : mobileWalletGuide === "binance" ? "Binance" : "Trust Wallet"}
-                </button>
-                <button className="btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={copyDappLink}>
-                  Copiar link deste site
+                <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={copyDappLink}>
+                  Copiar Link
                 </button>
               </div>
 
@@ -1275,9 +1493,10 @@ export default function NovexApp() {
                 borderRadius: 10, padding: 14, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6
               }}>
                 <b style={{ color: "var(--primary)" }}>Como funciona:</b><br />
-                1. Copie o link ou toque "Abrir no app"<br />
-                2. Dentro do app da carteira, cole o link no navegador<br />
-                3. O site vai carregar com a carteira já pronta para conectar
+                1. Copie o link clicando no botão acima<br />
+                2. Abra o app da sua carteira (MetaMask, Trust Wallet ou Binance)<br />
+                3. Cole o link no navegador dentro do app<br />
+                4. O site vai carregar com a carteira já pronta para conectar
               </div>
             </div>
           </div>
